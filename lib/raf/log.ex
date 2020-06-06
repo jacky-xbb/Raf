@@ -219,7 +219,7 @@ defmodule Raf.Log do
   end
 
   def format_status(_, [_, state]) do
-    [data: [{'State', "Current state: '#{inspect state}'"}]]
+    [data: [{'State', "Current state data: '#{inspect state}'"}]]
   end
 
   # Leader Append. entries do NOT have Indexes, as they are unlogged entries as a
@@ -305,8 +305,9 @@ defmodule Raf.Log do
     {:ok, state}
   end
 
+  #
   # Internal Functions
-
+  #
 
   defp maybe_append(_, [], state) do
     state
@@ -417,7 +418,7 @@ defmodule Raf.Log do
     binary_to_entry(entry)
   end
 
-  def make_trailer(entry_start, config_start) do
+  defp make_trailer(entry_start, config_start) do
     t = <<config_start::64, entry_start::64, @magic::binary >>
     crc = :erlang.crc32(t)
     <<crc::32, t::binary>>
@@ -624,7 +625,8 @@ end
     loc + @header_size + data_size + @trailer_size
   end
 
-  @spec read_data(:file.io_device(), non_neg_integer(), binary()) :: {:entry, binary(), non_neg_integer()} | :eof
+  @spec read_data(:file.io_device(), non_neg_integer(), binary()) ::
+        {:entry, binary(), non_neg_integer()} | :eof
   defp read_data(file, location, <<sha1::binary-size(20), type::8, term::64, index::64, size::32>>=h) do
     case :file.pread(file, location, size) do
       {:ok, data} ->
