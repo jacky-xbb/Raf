@@ -98,6 +98,7 @@ defmodule ClientReq do
     GenStateMachine.call(peer, {:read_op, command})
   end
 
+  @spec set_config(atom | pid | {atom, any} | {:via, atom, any}, any) :: any
   def set_config(peer, config) do
     GenStateMachine.call(peer, {:set_config, config})
   end
@@ -168,8 +169,8 @@ defmodule ClientReq do
     end
   end
 
-  def handle_event({:call, from}, :get_leader, state_name, %State{leader: leader}=state) do
-    {:next_state, state_name, state, [{:reply, from, leader}]}
+  def handle_event({:call, from}, :get_leader, _state_name, %State{leader: leader}) do
+    {:keep_state_and_data, [{:reply, from, leader}]}
   end
   # def handle_event(_event_type, _event_content, _state_name, state) do
   #   {:stop, :badmsg, state}
@@ -378,6 +379,10 @@ defmodule ClientReq do
     {:keep_state_and_data, [{:reply, from, reply}]}
   end
 
+  def follower(event, msg, state) do
+    handle_event(event, msg, :follower, state)
+  end
+
   #
   # Candidate States
   #
@@ -559,6 +564,9 @@ defmodule ClientReq do
     {:keep_state_and_data, [{:reply, from, {:error, :election_in_progress}}]}
   end
 
+  def candidate(msg, event, data) do
+    handle_event(msg, event, :candidate, data)
+  end
 
   #
   # Leader States
@@ -718,6 +726,10 @@ defmodule ClientReq do
     state = append(id, from, entry, state, :leader)
     # TODO: consider timeout
     {:keep_state, state}
+  end
+
+  def leader(msg, event, data) do
+    handle_event(msg, event, :leader, data)
   end
 
   #

@@ -1,7 +1,7 @@
 # Raf
 
 ## Overview
-Raf is a Elixir implementation of the Raft distributed consensus protocol. It provides users with an api for building consistent (2F+1 CP), distributed state machines. Raft protocol is described in the [original
+Raf is an Elixir implementation of the Raft distributed consensus protocol. It provides users with an api for building consistent (2F+1 CP), distributed state machines. Raft protocol is described in the [original
 paper](https://raft.github.io/raft.pdf).
 
 
@@ -39,16 +39,24 @@ $ iex --sname peer3@localhost -S mix
 iex(peer3@localhost)1> Raf.start_test_node(:peer3)
 ```
 
+when peers have been running. You can check peers' status:
+
+```elixir
+:sys.get_status(:peer1)
+or
+:sys.get_state(:peer1)
+```
+
 ### Config cluster
 
 At this point all the peers are in the `follow` state. In order to get them to communicate we need to define
 a cluster configuration. In our case, we'll run on node `peer1`:
 
 ```elixir
-iex(peer1@localhost)1> Raf.set_config(:peer1，
-            ...> [{ :peer1, :peer1@localhost },
-            ...>  { :peer2, :peer2@localhost },
-            ...>  { :peer3, :peer3@localhost }])
+peers = [{peer1, :peer1@localhost},
+        {peer2, :peer2@localhost},
+        {peer3, :peer3@localhost}]
+Raf.set_config(:peer1, peers)
 ```
 
 Once election is done. You can see who is the current leader:
