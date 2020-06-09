@@ -2,7 +2,7 @@
 
 ## Overview
 Raf is a Elixir implementation of the Raft distributed consensus protocol. It provides users with an api for building consistent (2F+1 CP), distributed state machines. Raft protocol is described in the [original
-paper](https://raft.github.io/raft.pdf)
+paper](https://raft.github.io/raft.pdf).
 
 
 ## Features
