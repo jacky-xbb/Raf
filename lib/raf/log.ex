@@ -41,13 +41,14 @@ defmodule Raf.Log do
             <<"\xFE\xED\xFE\xED\xFE\xED\xFE\xED">>
 
   """
+  use GenServer
+  require Logger
+
   alias Raf.{
     Log,
     Config,
     Opts
   }
-
-  require Logger
 
   @max_hints 1000
 
@@ -197,14 +198,14 @@ defmodule Raf.Log do
   # gen_server callbacks
 
   def init([name, %Opts{logdir: log_dir}]) do
-    log_name = log_dir <> "/rafter_" <> Atom.to_string(name) <> ".log"
-    meta_name = log_dir <> "/rafter_" <> Atom.to_string(name) <> ".meta"
+    log_name = log_dir <> "/raf_" <> Atom.to_string(name) <> ".log"
+    meta_name = log_dir <> "/raf_" <> Atom.to_string(name) <> ".meta"
     {:ok, log_file} = :file.open(log_name, [:append, :read, :binary, :raw])
     {:ok, %File.Stat{size: size}} = File.stat(log_name)
     {:ok, meta} = read_metadata(meta_name, size)
     {config_loc, config, _term, index, write_location, version} = init_file(log_file, size)
     last_entry = find_last_entry(log_file, write_location)
-    hints_table = String.to_atom("rafter_hints_"  <>  Atom.to_string(name))
+    hints_table = String.to_atom("raf_hints_"  <>  Atom.to_string(name))
     {:ok, %State{logfile: log_file,
                 version: version,
                 meta_filename: meta_name,

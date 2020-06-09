@@ -110,7 +110,7 @@ defp assert_empty() do
 end
 
   defp cleanup() do
-    System.cmd("rm", ["-rf", "/tmp/rafter_test.log"])
+    System.cmd("rm", ["-rf", "/tmp/raf_test.log"])
   end
 
   defp logname({name, _node}) do

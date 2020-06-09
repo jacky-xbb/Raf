@@ -9,6 +9,7 @@ defmodule Raf.Application do
     children = [
       # Starts a worker by calling: Raf.Worker.start_link(arg)
       # {Raf.Worker, arg}
+      Raf.Server.Supervisor,
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

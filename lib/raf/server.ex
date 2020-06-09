@@ -1,6 +1,6 @@
-defmodule Raf.Fsm do
+defmodule Raf.Server do
   @moduledoc """
-  The Fsm module provides the raft fsm
+  The Server module provides the raft fsm
   """
 
   use GenStateMachine, callback_mode: :state_functions
@@ -155,9 +155,24 @@ defmodule ClientReq do
     {:ok, :follower, state}
   end
 
-  def format_status(_, [_, state]) do
-    [data: [{'State', "Current state data: '#{inspect state}'"}]]
+  def format_status(reason, [_pdict, state, data]) do
+    case reason do
+      :terminate ->
+        Logger.error("terminates abnormally or logs an error!")
+      _ ->
+        [
+          state: [{'State', "Current state: '#{inspect state}'"}],
+          data: [{'Data', "Current data: '#{inspect data}'"}]
+        ]
+    end
   end
+
+  def handle_event({:call, from}, :get_leader, state_name, %State{leader: leader}=state) do
+    {:next_state, state_name, state, [{:reply, from, leader}]}
+  end
+  # def handle_event(_event_type, _event_content, _state_name, state) do
+  #   {:stop, :badmsg, state}
+  # end
 
   def handle_event(
         :info,

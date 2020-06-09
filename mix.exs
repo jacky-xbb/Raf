@@ -23,6 +23,7 @@ defmodule Raf.MixProject do
   defp deps do
     [
       {:gen_state_machine, "~> 2.1"},
+      {:uuid, "~> 1.1"},
     ]
   end
 end

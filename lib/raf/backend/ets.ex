@@ -1,4 +1,6 @@
 defmodule Raf.Backend.Ets do
+  @behaviour Raf.Backend
+
   require Logger
 
   defmodule State do
@@ -12,15 +14,15 @@ defmodule Raf.Backend.Ets do
   def init(peer) do
     state = %State{peer: peer}
     new_state = stop(state)
-    _tid1 = :ets.new(:rafter_backend_ets, [:set, :named_table, :public])
-    _tid2 = :ets.new(:rafter_backend_ets_tables, [:set, :named_table, :public])
+    _tid1 = :ets.new(:raf_backend_ets, [:set, :named_table, :public])
+    _tid2 = :ets.new(:raf_backend_ets_tables, [:set, :named_table, :public])
     new_state
   end
 
   def stop(state) do
     try do
-      :ets.delete(:rafter_backend_ets)
-      :ets.delete(:rafter_backend_ets_tables)
+      :ets.delete(:raf_backend_ets)
+      :ets.delete(:raf_backend_ets_tables)
     rescue
       _ -> Logger.error("ets delete failed!")
     after
@@ -45,7 +47,7 @@ defmodule Raf.Backend.Ets do
 
   def read(:list_tables, state) do
     tables =
-      for {table} <- :ets.tab2list(:rafter_backend_ets_tables) do
+      for {table} <- :ets.tab2list(:raf_backend_ets_tables) do
         table
       end
     {{:ok, tables}, state}
@@ -69,7 +71,7 @@ defmodule Raf.Backend.Ets do
     val =
       try do
         _tid = :ets.new((name), [:ordered_set, :named_table, :public])
-        :ets.insert(:rafter_backend_ets_tables, {name})
+        :ets.insert(:raf_backend_ets_tables, {name})
         {:ok, name}
         rescue
           e -> {:error, e}
@@ -92,7 +94,7 @@ defmodule Raf.Backend.Ets do
     val =
       try do
         :ets.delete(table)
-        :ets.delete(:rafter_backend_ets_tables, table)
+        :ets.delete(:raf_backend_ets_tables, table)
         {:ok, true}
       rescue
         e -> {:error, e}

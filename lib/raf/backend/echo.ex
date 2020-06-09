@@ -1,4 +1,5 @@
 defmodule Raf.Backend.Echo do
+  @behaviour Raf.Backend
 
   def init(_) do
     :ok

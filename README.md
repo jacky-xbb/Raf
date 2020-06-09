@@ -1,6 +1,15 @@
 # Raf
 
-**TODO: Add description**
+## Overview
+Raf is a Elixir implementation of the Raft distributed consensus protocol. It provides users with an api for building consistent (2F+1 CP), distributed state machines. Raft protocol is described in the [original
+paper](https://raft.github.io/raft.pdf)
+
+
+## Features
+- Leader election
+- Log replication
+- Configuration changes
+
 
 ## Installation
 
@@ -15,7 +24,66 @@ def deps do
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/raf](https://hexdocs.pm/raf).
+## Example
+
+### Launch 3 nodes
+
+```elixir
+$ iex --sname peer1@localhost -S mix
+iex(peer1@localhost)1> Raf.start_test_node(:peer1)
+
+$ iex --sname peer2@localhost -S mix
+iex(peer2@localhost)1> Raf.start_test_node(:peer2)
+
+$ iex --sname peer3@localhost -S mix
+iex(peer3@localhost)1> Raf.start_test_node(:peer3)
+```
+
+### Config cluster
+
+At this point all the peers are in the `follow` state. In order to get them to communicate we need to define
+a cluster configuration. In our case, we'll run on node `peer1`:
+
+```elixir
+iex(peer1@localhost)1> Raf.set_config(:peer1，
+            ...> [{ :peer1, :peer1@localhost },
+            ...>  { :peer2, :peer2@localhost },
+            ...>  { :peer3, :peer3@localhost }])
+```
+
+Once election is done. You can see who is the current leader:
+
+```elixir
+leader = Raf.get_leader(:peer1)
+```
+
+### Write Operations
+
+```elixir
+# Create a new ets table
+raf.write(:peer1, {:new, sometable})
+
+# Store an erlang term in that table
+raf.write(:peer1, {:put, sometable, somekey, someval})
+
+# Delete a term from the table
+raf.write(:peer1, {:delete, sometable, somekey})
+
+# Delete a table
+raf.write(:peer1, {:delete, sometable})
+```
+
+### Read Operations
+
+```elixir
+# Read an erlang term
+raf.read(:peer1, {get, table, key})
+
+# list tables
+raf.read(:peer1, :list_tables)
+
+# list keys
+raf.read(:peer1, {:list_keys, table})
+```
+
 
