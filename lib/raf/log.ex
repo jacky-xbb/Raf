@@ -129,12 +129,13 @@ defmodule Raf.Log do
     %Log.Entry{type: :op, term: term, index: index, cmd: :erlang.binary_to_term(data)}
   end
 
-  def start_link(peer, opts) do
-    :gen_server.start_link({:local, logname(peer)}, __MODULE__, [peer, opts], [])
+  @spec start_link([...]) :: :ignore | {:error, any} | {:ok, pid}
+  def start_link([peer, opts]) do
+    GenServer.start_link(__MODULE__, {peer, opts}, name: log_name(peer))
   end
 
   def stop(peer) do
-    :gen_server.cast(logname(peer), :stop)
+    GenServer.cast(log_name(peer), :stop)
   end
 
   @doc """
@@ -143,26 +144,26 @@ defmodule Raf.Log do
   committed entries as this violates the safety of the RAFT protocol.
   """
   def check_and_append(peer, entries, index) do
-    :gen_server.call(logname(peer), {:check_and_append, entries, index})
+    GenServer.call(log_name(peer), {:check_and_append, entries, index})
   end
 
   @doc """
   Gets called in the leader state only, and assumes a truncated log.
   """
   def append(peer, entries) do
-    :gen_server.call(logname(peer), {:append, entries})
+    GenServer.call(log_name(peer), {:append, entries})
   end
 
   def get_config(peer) do
-    :gen_server.call(logname(peer), :get_config)
+    GenServer.call(log_name(peer), :get_config)
   end
 
   def get_last_index(peer) do
-    :gen_server.call(logname(peer), :get_last_index)
+    GenServer.call(log_name(peer), :get_last_index)
   end
 
   def get_last_entry(peer) do
-    :gen_server.call(logname(peer), :get_last_entry)
+    GenServer.call(log_name(peer), :get_last_entry)
   end
 
   def get_last_term(peer) do
@@ -175,15 +176,15 @@ defmodule Raf.Log do
   end
 
   def get_metadata(peer) do
-    :gen_server.call(logname(peer), :get_metadata)
+    GenServer.call(log_name(peer), :get_metadata)
   end
 
   def set_metadata(peer, voted_for, term) do
-    :gen_server.call(logname(peer), {:set_metadata, voted_for, term})
+    GenServer.call(log_name(peer), {:set_metadata, voted_for, term})
   end
 
   def get_entry(peer, index) do
-    :gen_server.call(logname(peer), {:get_entry, index})
+    GenServer.call(log_name(peer), {:get_entry, index})
   end
 
   def get_term(peer, index) do
@@ -197,7 +198,7 @@ defmodule Raf.Log do
 
   # gen_server callbacks
 
-  def init([name, %Opts{logdir: log_dir}]) do
+  def init({name, %Opts{logdir: log_dir}}) do
     log_name = log_dir <> "/raf_" <> Atom.to_string(name) <> ".log"
     meta_name = log_dir <> "/raf_" <> Atom.to_string(name) <> ".meta"
     {:ok, log_file} = :file.open(log_name, [:append, :read, :binary, :raw])
@@ -641,12 +642,15 @@ end
     end
   end
 
-  defp logname({name, _node}) do
-    String.to_atom(Atom.to_string(name) <> "_log")
-  end
-  defp logname(me) do
-    String.to_atom(Atom.to_string(me) <> "_log")
-  end
+  # defp log_name({name, _node}) do
+  #   String.to_atom(Atom.to_string(name) <> "_log")
+  # end
+  # defp log_name(me) do
+  #   String.to_atom(Atom.to_string(me) <> "_log")
+  # end
+
+  defp log_name({name, _}), do: log_name(name)
+  defp log_name(name), do: :"#{name}_log"
 
   @spec update_counters(offset(), non_neg_integer(), %State{}) :: %State{}
   defp update_counters(distance, prunes, %State{hint_prunes: prunes0, seek_counts: dict0}=state) do

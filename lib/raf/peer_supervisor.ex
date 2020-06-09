@@ -24,11 +24,10 @@ defmodule Raf.PeerSupervisor do
     :"#{name}_sup"
   end
 
-  @spec init({any, any, any}) :: {:ok, {%{intensity: any, period: any, strategy: any}, [any]}}
   def init({name, me, opts}) do
     children = [
       {Raf.Log, [name, opts]},
-      {Raf.Server, [name, me, opts]},
+      # {Raf.Server, [name, me, opts]},
     ]
 
     Supervisor.init(children, strategy: :one_for_all)

@@ -16,7 +16,7 @@ defmodule LogTest do
     cleanup()
 
     opts = %Opts{logdir: "/tmp"}
-    {:ok, _pid} = Log.start_link(@peer, opts)
+    {:ok, _pid} = Log.start_link([@peer, opts])
     assert_empty()
 
     # We are appending entry1 as the leader, so it has no index.
