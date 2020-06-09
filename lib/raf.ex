@@ -54,7 +54,7 @@ defmodule Raf do
 
   def start_test_cluster() do
     path = make_path("test_log")
-    opts = %Opts{state_machine: :"Raf.Backend.Echo", logdir: path}
+    opts = %Opts{state_machine: Raf.Backend.Echo, logdir: path}
     peers = [:peer1, :peer2, :peer3]
     peers
     |> Enum.each(fn peer -> start_node(peer, opts) end)
@@ -65,7 +65,7 @@ defmodule Raf do
   def start_test_node(name) do
     path = make_path("test_data")
     peer = {name, node()}
-    opts = %Opts{state_machine: :"Raf.Backend.Ets", logdir: path}
+    opts = %Opts{state_machine: Raf.Backend.Ets, logdir: path}
     start_node(peer, opts)
   end
 

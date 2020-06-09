@@ -24,7 +24,7 @@ defmodule Raf.Backend.Ets do
       :ets.delete(:raf_backend_ets)
       :ets.delete(:raf_backend_ets_tables)
     rescue
-      _ -> Logger.error("ets delete failed!")
+      _ -> Logger.info("ets delete failed!")
     after
       state
     end

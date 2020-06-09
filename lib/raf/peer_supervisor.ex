@@ -27,7 +27,7 @@ defmodule Raf.PeerSupervisor do
   def init({name, me, opts}) do
     children = [
       {Raf.Log, [name, opts]},
-      # {Raf.Server, [name, me, opts]},
+      {Raf.Server, [name, me, opts]},
     ]
 
     Supervisor.init(children, strategy: :one_for_all)

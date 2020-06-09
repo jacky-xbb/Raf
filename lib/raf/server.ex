@@ -86,7 +86,7 @@ defmodule ClientReq do
 
   # API
 
-  def start_link(name, me, opts) do
+  def start_link([name, me, opts]) do
     GenStateMachine.start_link(__MODULE__, [me, opts], name: name)
   end
 
@@ -133,6 +133,7 @@ defmodule ClientReq do
   def init([me, %Opts{state_machine: state_machine}]) do
     timer = Process.send_after(self(), :timeout, election_timeout())
     %Log.Meta{voted_for: voted_for, term: term} = Log.get_metadata(me)
+    IO.inspect state_machine
     backend_state = state_machine.init(me)
     state = %State{
       term: term,

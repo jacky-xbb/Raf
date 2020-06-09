@@ -1,8 +1,8 @@
 defmodule Raf.Opts do
-  defstruct [:logdir, state_machine: :"Raf.Backend.Echo"]
+  defstruct [:logdir, state_machine: Raf.Backend.Echo]
 
   @type t :: %__MODULE__{
-    state_machine: atom(),
+    state_machine: module(),
     logdir: String.t()
   }
 
