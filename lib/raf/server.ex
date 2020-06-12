@@ -21,7 +21,7 @@ defmodule Raf.Server do
   @election_timeout_max 1000
   @heartbeat_timeout 25
 
-defmodule ClientReq do
+  defmodule ClientReq do
     defstruct [:id, :timer, :from, :index, :term, :cmd]
 
     @type t :: %__MODULE__{
@@ -90,6 +90,7 @@ defmodule ClientReq do
     GenStateMachine.start_link(__MODULE__, [me, opts], name: name)
   end
 
+  @spec op(atom | pid | {atom, any} | {:via, atom, any}, any) :: any
   def op(peer, command) do
     GenStateMachine.call(peer, {:op, command})
   end
@@ -123,6 +124,7 @@ defmodule ClientReq do
     GenStateMachine.call(to, msg, 100)
   end
 
+  @spec stop(atom | pid | {atom, any} | {:via, atom, any}) :: any
   def stop(pid) do
     GenStateMachine.call(pid, :stop)
   end
@@ -134,7 +136,6 @@ defmodule ClientReq do
   def init([me, %Opts{state_machine: state_machine}]) do
     timer = Process.send_after(self(), :timeout, election_timeout())
     %Log.Meta{voted_for: voted_for, term: term} = Log.get_metadata(me)
-    IO.inspect state_machine
     backend_state = state_machine.init(me)
     state = %State{
       term: term,
@@ -172,9 +173,6 @@ defmodule ClientReq do
   def handle_event({:call, from}, :get_leader, _state_name, %State{leader: leader}) do
     {:keep_state_and_data, [{:reply, from, leader}]}
   end
-  # def handle_event(_event_type, _event_content, _state_name, state) do
-  #   {:stop, :badmsg, state}
-  # end
 
   def handle_event(
         :info,
@@ -196,18 +194,24 @@ defmodule ClientReq do
         {:client_timeout, id},
         state_name,
         %State{client_reqs: reqs}=state) do
+
     case find_client_req(id, reqs) do
       {:ok, client_req} ->
         send_client_timeout_reply(client_req)
-        state = %{state | client_reqs: delete_client_req(Id, reqs)}
+        state = %{state | client_reqs: delete_client_req(id, reqs)}
         {:next_state, state_name, state}
       :not_found ->
         {:next_state, state_name, state}
     end
   end
 
-  def handle_info(:info, _, _, state) do
-    {:stop, :badmsg, state}
+  def handle_event(event_type, event, state, _data) do
+    Logger.debug(fn ->
+      "Unhandled event, \n event_type: #{inspect event_type},
+      event: #{inspect event}, \n state: #{inspect state}"
+    end)
+
+    {:keep_state_and_data, []}
   end
 
   def terminate(_, _, _) do
@@ -264,11 +268,12 @@ defmodule ClientReq do
     {:call, from},
     %Msg.AppendEntriesReq{
       term: term,
-      from: from,
+      from: peer,
       prev_log_index: prev_log_index,
       entries: entries,
       commit_index: commit_index,
-      send_clock: clock}=append_entries,
+      send_clock: clock
+    }=append_entries,
     %State{me: me}=state
     ) do
     state2 = set_term(term , state)
@@ -290,7 +295,7 @@ defmodule ClientReq do
         config = Log.get_config(me)
         resp = %{resp | success: true, index: current_index}
         state4 = commit_entries(commit_index, state3)
-        state5 = %{state4 | leader: from, config: config}
+        state5 = %{state4 | leader: peer, config: config}
         # {reply, resp, follower, state5}
         {:keep_state, state5, [{:reply, from, resp}]}
     end
@@ -840,6 +845,7 @@ defmodule ClientReq do
       %{state | read_reqs: new_requests}
   end
 
+  @spec safe_to_commit(any, Raf.Server.State.t()) :: boolean
   def safe_to_commit(index, %State{term: current_term, me: me}) do
     current_term === Log.get_term(me, index)
   end
@@ -918,7 +924,7 @@ defmodule ClientReq do
   @spec append(binary(), term(), %Log.Entry{}, %State{}) :: %State{}
   defp append(id, from, entry, %State{me: me, term: term, client_reqs: reqs}=state) do
     {:ok, index} = Log.append(me, [entry])
-    timer = Process.send_after(me, {:client_timeout, id}, @client_timeout)
+    timer = Process.send_after(process_name(me), {:client_timeout, id}, @client_timeout)
     client_request = %ClientReq{
       id: id,
       from: from,
@@ -1009,7 +1015,7 @@ defmodule ClientReq do
     new_followers = Configuration.followers(me, config)
 
     old_set = old_followers
-    |> MapSet.to_list()
+    |> Map.to_list()
     |> Enum.map(fn {k, _} -> k end)
     |> MapSet.new()
     new_set = new_followers |> MapSet.new()
@@ -1080,7 +1086,7 @@ defmodule ClientReq do
   end
 
   defp send_client_reply(%ClientReq{timer: timer, from: from}, result) do
-    :ok = Process.cancel_timer(timer)
+    _ = Process.cancel_timer(timer)
     GenStateMachine.reply(from, result)
   end
 
@@ -1130,14 +1136,15 @@ defmodule ClientReq do
     state
   end
   defp commit_entries(new_commit_index, %State{
-    commit_index: commit_index,
-    state_machine: state_machine,
-    backend_state: backend_state,
-    me: me}=state) do
+        commit_index: commit_index,
+        state_machine: state_machine,
+        backend_state: backend_state,
+        me: me}=state
+      ) do
    last_index = min(Log.get_last_index(me), new_commit_index)
-   index_range = commit_index+1..last_index
-   List.foldl(index_range, state, fn index, %State{client_reqs: cli_reqs}=state1 ->
-      new_state = %{state1 | commit_index: index}
+   index_range = :lists.seq(commit_index+1, last_index)
+   List.foldl(index_range, state, fn (index, state) ->
+      new_state = %{state | commit_index: index}
       case Log.get_entry(me, index) do
         # Noop - Ignore this request
         {:ok, %Log.Entry{type: :noop}} ->
@@ -1147,7 +1154,7 @@ defmodule ClientReq do
         {:ok, %Log.Entry{type: :op, cmd: command}} ->
           {result, new_backend_state} = state_machine.write(command, backend_state)
           new_state2 = %{new_state | backend_state: new_backend_state}
-          maybe_send_client_reply(index, cli_reqs, new_state2, result)
+          maybe_send_client_reply(index, state.client_reqs, new_state2, result)
 
         # We have a committed transitional state, so reply
         # successfully to the client. Then set the new stable
@@ -1155,7 +1162,7 @@ defmodule ClientReq do
         {:ok, %Log.Entry{type: :config, cmd: %Config{state: :transitional}=c}} ->
           s = stabilize_config(c, new_state)
           reply = {:ok, s.config}
-          maybe_send_client_reply(index, cli_reqs, s, reply)
+          maybe_send_client_reply(index, state.client_reqs, s, reply)
 
         # The configuration has already been set. Initial configuration goes
         # directly to stable state so needs to send a reply. Checking for
@@ -1163,7 +1170,7 @@ defmodule ClientReq do
         # infrequently.
         {:ok, %Log.Entry{type: :config, cmd: %Config{state: :stable}}} ->
           reply = {:ok, new_state.config}
-          maybe_send_client_reply(index, cli_reqs, new_state, reply)
+          maybe_send_client_reply(index, state.client_reqs, new_state, reply)
       end
    end)
   end
@@ -1232,33 +1239,42 @@ defmodule ClientReq do
                                 when candidate_term < log_term do
     false
   end
-  defp candidate_log_up_to_date(term, candidate_index, term, log_index)
-                                when candidate_index > log_index do
+  defp candidate_log_up_to_date(candidate_term, candidate_index, log_term, log_index)
+                                when candidate_term === log_term and candidate_index > log_index do
     true
   end
-  defp candidate_log_up_to_date(term, candidate_index, term, log_index)
-                                when candidate_index < log_index do
+  defp candidate_log_up_to_date(candidate_term, candidate_index, log_term, log_index)
+                                when candidate_term === log_term and candidate_index < log_index do
     false
   end
   defp candidate_log_up_to_date(term, index, term, index) do
     true
   end
 
-  defp vote(%Msg.RequestVoteReq{term: term}, %State{term: current_term, me: me})
-            when term < current_term do
-      fail_vote(current_term, me)
+  defp vote(
+        %Msg.RequestVoteReq{term: term},
+        %State{term: current_term, me: me}
+      )
+      when term < current_term do
+    fail_vote(current_term, me)
   end
-  defp vote(%Msg.RequestVoteReq{from: candidate_id, term: current_term}=request_vote_req,
-            %State{voted_for: candidate_id, term: current_term, me: me}=state) do
+  defp vote(
+        %Msg.RequestVoteReq{from: candidate_id, term: current_term}=request_vote_req,
+        %State{voted_for: candidate_id, term: current_term, me: me}=state
+      ) do
     maybe_successful_vote(request_vote_req, current_term, me, state)
   end
-  defp vote(%Msg.RequestVoteReq{term: current_term}=request_vote_req,
-            %State{voted_for: :undefined, term: current_term, me: me}=state) do
+  defp vote(
+        %Msg.RequestVoteReq{term: current_term}=request_vote_req,
+        %State{voted_for: :undefined, term: current_term, me: me}=state
+      ) do
     maybe_successful_vote(request_vote_req, current_term, me, state)
   end
-  defp vote(%Msg.RequestVoteReq{from: candidate_id, term: current_term},
-                                %State{voted_for: another_id, term: current_term, me: me})
-                                when another_id !== candidate_id do
+  defp vote(
+        %Msg.RequestVoteReq{from: candidate_id, term: current_term},
+        %State{voted_for: another_id, term: current_term, me: me}
+      )
+      when another_id !== candidate_id do
     fail_vote(current_term, me)
   end
 
@@ -1293,6 +1309,7 @@ defmodule ClientReq do
       last_log_index: Log.get_last_index(me),
       last_log_term: Log.get_last_term(me)
     }
+
     Enum.each(voters, fn peer ->
       Requester.send(peer, msg)
     end)
@@ -1325,4 +1342,7 @@ defmodule ClientReq do
     new_timer = Process.send_after(self(), :timeout, timeout)
     %{state | timer: new_timer}
   end
+
+  defp process_name({name, _node}), do: name
+  defp process_name(name), do: name
 end

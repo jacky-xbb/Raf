@@ -53,45 +53,46 @@ At this point all the peers are in the `follow` state. In order to get them to c
 a cluster configuration. In our case, we'll run on node `peer1`:
 
 ```elixir
-peers = [{peer1, :peer1@localhost},
-        {peer2, :peer2@localhost},
-        {peer3, :peer3@localhost}]
+peers = [{:peer1, :peer1@localhost},
+        {:peer2, :peer2@localhost},
+        {:peer3, :peer3@localhost}]
 Raf.set_config(:peer1, peers)
 ```
 
 Once election is done. You can see who is the current leader:
 
 ```elixir
-leader = Raf.get_leader(:peer1)
+iex(peer2@localhost)3> Raf.get_leader(:peer2)
+{:peer1, :peer1@localhost}
 ```
 
 ### Write Operations
 
 ```elixir
 # Create a new ets table
-raf.write(:peer1, {:new, sometable})
+Raf.write(:peer1, {:new, :sometable})
 
 # Store an erlang term in that table
-raf.write(:peer1, {:put, sometable, somekey, someval})
+Raf.write(:peer1, {:put, :sometable, :somekey, :someval})
 
 # Delete a term from the table
-raf.write(:peer1, {:delete, sometable, somekey})
+Raf.write(:peer1, {:delete, :sometable, :somekey})
 
 # Delete a table
-raf.write(:peer1, {:delete, sometable})
+Raf.write(:peer1, {:delete, :sometable})
 ```
 
 ### Read Operations
 
 ```elixir
 # Read an erlang term
-raf.read(:peer1, {get, table, key})
+Raf.read(:peer1, {get, sometable, somekey})
 
 # list tables
-raf.read(:peer1, :list_tables)
+Raf.read(:peer1, :list_tables)
 
 # list keys
-raf.read(:peer1, {:list_keys, table})
+Raf.read(:peer1, {:list_keys, somekey})
 ```
 
 
