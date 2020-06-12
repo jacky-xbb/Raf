@@ -86,13 +86,13 @@ Raf.write(:peer1, {:delete, :sometable})
 
 ```elixir
 # Read an erlang term
-Raf.read(:peer1, {get, sometable, somekey})
+Raf.read(:peer1, {:get, :sometable, :somekey})
 
 # list tables
 Raf.read(:peer1, :list_tables)
 
 # list keys
-Raf.read(:peer1, {:list_keys, somekey})
+Raf.read(:peer1, {:list_keys, :somekey})
 ```
 
 
