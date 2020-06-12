@@ -38,7 +38,7 @@ defmodule Raf.Server do
   defmodule State do
     defstruct [:leader, :voted_for, :init_config, :timer, :me, :config, :state_machine, :backend_state,
                term: 0, commit_index: 0, followers: %{}, responses: %{}, send_clock: 0, send_clock_responses: %{},
-               client_reqs: [], read_reqs: []]
+               client_reqs: [], read_reqs: Map.new()]
 
     @type t :: %__MODULE__{
       leader: term(),
@@ -580,6 +580,7 @@ defmodule Raf.Server do
   def leader(:info, :timeout, state) do
     state = reset_timer(@heartbeat_timeout, state)
     state = send_append_entries(state)
+
     {:keep_state, state}
   end
 
@@ -757,23 +758,25 @@ defmodule Raf.Server do
     eligible =
       requests
       |> Enum.take_while(fn {clock, _} -> send_clock > clock end)
+      |> Map.new
 
     requests =
       requests
       |> Enum.drop_while(fn {clock, _} -> send_clock > clock end)
+      |> Map.new
 
     state = %{state | read_reqs: requests}
     {:ok, eligible, state}
   end
 
-  defp send_client_read_replies([], state) do
+  defp send_client_read_replies(%{}, state) do
     state
   end
   defp send_client_read_replies(
         requests,
         %State{state_machine: state_machine, backend_state: backend_state} = state
       ) do
-    backend_state = List.foldl(requests, backend_state, fn ({_clock, client_reqs}, be_state) ->
+    backend_state = List.foldl(Map.to_list(requests), backend_state, fn ({_clock, client_reqs}, be_state) ->
       read_and_send(client_reqs, state_machine, be_state)
     end)
     %{state | backend_state: backend_state}
@@ -821,7 +824,7 @@ defmodule Raf.Server do
   end
 
   defp setup_read_request(id, from, command, %State{send_clock: clock, me: me, term: term}=state) do
-    timer = Process.send_after(me, {:client_read_timeout, clock, id}, @client_timeout)
+    timer = Process.send_after(process_name(me), {:client_read_timeout, clock, id}, @client_timeout)
     read_request = %ClientReq{id: id,
                               from: from,
                               term: term,
@@ -842,7 +845,7 @@ defmodule Raf.Server do
         :error ->
           Map.put(requests, clock, [read_request])
       end
-      %{state | read_reqs: new_requests}
+    %{state | read_reqs: new_requests}
   end
 
   @spec safe_to_commit(any, Raf.Server.State.t()) :: boolean
@@ -948,7 +951,7 @@ defmodule Raf.Server do
                       followers: initialize_followers(state),
                       send_clock: 0,
                       send_clock_responses: %{},
-                      read_reqs: %{}}
+                      read_reqs: Map.new()}
 
     case init_config do
       :complete ->
