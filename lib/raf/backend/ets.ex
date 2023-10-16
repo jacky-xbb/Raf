@@ -73,8 +73,8 @@ defmodule Raf.Backend.Ets do
         _tid = :ets.new((name), [:ordered_set, :named_table, :public])
         :ets.insert(:raf_backend_ets_tables, {name})
         {:ok, name}
-        rescue
-          e -> {:error, e}
+      rescue
+        e -> {:error, e}
       end
     {val, state}
   end
@@ -84,8 +84,8 @@ defmodule Raf.Backend.Ets do
       try do
         :ets.insert(table, {key, value})
         {:ok, value}
-        rescue
-          e -> {:error, e}
+      rescue
+        e -> {:error, e}
       end
     {val, state}
   end
